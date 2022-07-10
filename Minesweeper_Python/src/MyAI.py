@@ -47,7 +47,7 @@ class MyAI( AI ):
 			num = 0
 			for col in range(x-1, x+2):
 				for row in range(y-1, y+2):
-					if col != x and row != y and self._isvalid(col, row) and self.getLabel(col, row) == "*":
+					if not(col == x and row == y) and self._isvalid(col, row) and self.getLabel(col, row) == "*":
 						num += 1
 			return num
 
@@ -86,7 +86,7 @@ class MyAI( AI ):
 		########################################################################
 		#							YOUR CODE BEGINS						   #
 		########################################################################
-		pass
+		return Action(AI.Action.LEAVE)
 		########################################################################
 		#							YOUR CODE ENDS							   #
 		########################################################################
