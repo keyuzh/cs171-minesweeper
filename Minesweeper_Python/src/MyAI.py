@@ -83,10 +83,38 @@ class MyAI( AI ):
 
 
 	def getAction(self, number: int) -> "Action Object":
+		"""As you UNCOVER, FLAG, UNFLAG, update the board
+		When you return UNCOVER, next getAction (number) call has the
+		label of the square you uncovered"""
 		########################################################################
 		#							YOUR CODE BEGINS						   #
 		########################################################################
+
+		# basic outline of getAction()
+
+		# are we done? Num of covered tiles == num of mines -> LEAVE
+
+		# otherwise need to figure out UNCOVER X, Y
+
+		# use simple rule of thumb logic -> UNCOVER X, Y
+		self.ruleOfThumb()
+
+		# if this did not give tile to uncover, use better logic -> UNCOVER X, Y
+
+		# if this did not give tile to uncover, go to even more sophisticated logic -> UNCOVER X, Y
+
+		# finally, if still no tile (this will happen since some partial boards are undecidable), need to
+		# guess - exact probability computation may be intractable, use approximation -> UNCOVER X, Y
+
 		return Action(AI.Action.LEAVE)
 		########################################################################
 		#							YOUR CODE ENDS							   #
 		########################################################################
+
+	def ruleOfThumb(self):
+		# E.g. if EffectiveLabel(x) = NumUnMarkedNeighbors(x), then; all; UnMarkedNeighbors(x); must; be; mines(mark; them as such
+		# on; the; board;this is likely; to; reduce; effective; labels; of; other; nearby; uncovered; tiles, so; that; the
+		# rules; of; thumb; can; be; fired; again)
+
+		# E.g. if EffectiveLabel(x) = 0, then; all; UnMarkedNeighbors(x); must; be; safe(you; can; UNCOVER; them)
+		pass
