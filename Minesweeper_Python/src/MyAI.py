@@ -25,15 +25,14 @@ class MyAI( AI ):
 			self.rowDimension = rowDimension
 			self.colDimension = colDimension
 			self.board = [['*' for _ in range(rowDimension)] for _ in range(colDimension)]
-			# self.uncover(startX, startY, 0)  # starting tile guaranteed zero
 
-		def uncover(self, x, y, label: int):
+		def uncover(self, x, y, label):
 			self.board[x][y] = label
 
 		def mark(self, x, y):
 			self.uncover(x, y, "M")
 
-		def _isvalid(self, x, y):
+		def isvalid(self, x, y):
 			return (0 <= x < self.colDimension) and (0 <= y < self.rowDimension)
 
 		def getLabel(self, x, y):
@@ -48,7 +47,16 @@ class MyAI( AI ):
 		def isLabeled(self, x, y):
 			return isinstance(self.getLabel(x, y), int)
 
+		def getNeighbors(self, x, y):
+			neighbor = set()
+			for col in range(x-1, x+2):
+				for row in range(y-1, y+2):
+					if not(col == x and row == y) and self.isvalid(col, row):
+						neighbor.add((col, row))
+			return neighbor
+
 		def getCoveredCount(self):
+			"""Total number of covered tiles on the board."""
 			cnt = 0
 			for x in range(self.colDimension):
 				for y in range(self.rowDimension):
@@ -57,43 +65,22 @@ class MyAI( AI ):
 			return cnt
 
 		def getMarkedNeighbors(self, x, y):
-			neighbor = set()
-			for col in range(x-1, x+2):
-				for row in range(y-1, y+2):
-					if not(col == x and row == y) and self._isvalid(col, row) and self.isMarked(col, row):
-						neighbor.add((col, row))
-			return neighbor
+			return {(col, row) for col, row in self.getNeighbors(x, y) if self.isMarked(col, row)}
 
 		def getNumMarkedNeighbors(self, x, y):
 			return len(self.getMarkedNeighbors(x, y))
 
+		def getLabeledNeighbors(self, x, y):
+			return {(col, row) for col, row in self.getNeighbors(x, y) if self.isLabeled(col, row)}
+
 		def getNumLabeledNeighbors(self, x, y):
-			num = 0
-			for col in range(x-1, x+2):
-				for row in range(y-1, y+2):
-					if not(col == x and row == y) and self._isvalid(col, row) and isinstance(self.getLabel(col, row), int):
-						num += 1
-			return num
+			return len(self.getLabeledNeighbors(x, y))
 
 		def getCoveredNeighbors(self, x, y):
-			neighbor = set()
-			for col in range(x-1, x+2):
-				for row in range(y-1, y+2):
-					if (not(col == x and row == y)) and self._isvalid(col, row) and self.isCovered(col, row):
-						neighbor.add((col, row))
-			return neighbor
+			return {(col, row) for col, row in self.getNeighbors(x, y) if self.isCovered(col, row)}
 
 		def getNumCoveredNeighbors(self, x, y):
 			return len(self.getCoveredNeighbors(x, y))
-
-
-		def getAdjacentCovered(self, x, y):
-			num = 0
-			for col in range(x-1, x+2):
-				for row in range(y-1, y+2):
-					if not(col == x and row == y) and self._isvalid(col, row) and self.getLabel(col, row) == "*":
-						num += 1
-			return num
 
 		def getEffectiveLabel(self, x, y):
 			# EffectiveLabel(x) = Label(x) - NumMarkedNeighbors(x)
@@ -109,7 +96,7 @@ class MyAI( AI ):
 					effective = self.getEffectiveLabel(x, y)
 					if effective is None:
 						effective = ' '
-					adjacent = self.getAdjacentCovered(x, y)
+					adjacent = self.getNumCoveredNeighbors(x, y)
 					print("  {}:{}:{}".format(label, effective, adjacent), end='')
 				print()
 
@@ -129,20 +116,20 @@ class MyAI( AI ):
 						frontier.add((x, y))
 			return frontier
 
-
 	def __init__(self, rowDimension, colDimension, totalMines, startX, startY):
-
 		########################################################################
 		#							YOUR CODE BEGINS						   #
 		########################################################################
-		self.board = MyAI.Board(rowDimension, colDimension, totalMines, startX, startY)
 
+		# initialize board
+		self.board = MyAI.Board(rowDimension, colDimension, totalMines, startX, startY)
+		# store total number of mines
 		self.totalMines = totalMines
+		# need a variable to store the position of the last uncovered tile
 		self.lastActionPosition = (startX, startY)
-	########################################################################
+		########################################################################
 		#							YOUR CODE ENDS							   #
 		########################################################################
-
 
 	def getAction(self, number: int) -> "Action Object":
 		"""As you UNCOVER, FLAG, UNFLAG, update the board
@@ -154,32 +141,27 @@ class MyAI( AI ):
 		# update the label of last uncovered tile
 		self.board.uncover(self.lastActionPosition[0], self.lastActionPosition[1], number)
 
-		# basic outline of getAction()
-		# are we done? Num of covered tiles == num of mines -> LEAVE
-		if self.board.getCoveredCount() == self.totalMines:
-			return Action(AI.Action.LEAVE)
+		# debug
+		self.board.printBoard()
 
+		# basic outline of getAction()
+		# TODO: are we done? Num of covered tiles == num of mines -> LEAVE
 		# otherwise need to figure out UNCOVER X, Y
+
 		# first get the frontier tiles
 		covered_frontier = self.board.getCoveredFrontier()
-		uncovered_fronter = self.board.getUncoveredFrontier()
+		uncovered_frontier = self.board.getUncoveredFrontier()
 
-		# use simple rule of thumb logic -> UNCOVER X, Y
-		self.markAll(uncovered_fronter)
-		action = self.ruleOfThumb(uncovered_fronter)
+		# TODO: use simple rule of thumb logic -> UNCOVER X, Y
+		action = self.ruleOfThumb(uncovered_frontier)
 		if action is not None:
+			# rule of thumb returned an action, save the position of that action, then return
 			self.lastActionPosition = (action.getX(), action.getY())
-			if self.board.isMarked(action.getX(), action.getY()):
-				raise
-			print(action.getX(), action.getY())
-			self.board.printBoard()
 			return action
 
-		# if this did not give tile to uncover, use better logic -> UNCOVER X, Y
-
-		# if this did not give tile to uncover, go to even more sophisticated logic -> UNCOVER X, Y
-
-		# finally, if still no tile (this will happen since some partial boards are undecidable), need to
+		# TODO: if this did not give tile to uncover, use better logic -> UNCOVER X, Y
+		# TODO: if this did not give tile to uncover, go to even more sophisticated logic -> UNCOVER X, Y
+		# TODO: finally, if still no tile (this will happen since some partial boards are undecidable), need to
 		# guess - exact probability computation may be intractable, use approximation -> UNCOVER X, Y
 		self.board.printBoard()
 		return Action(AI.Action.LEAVE)
@@ -187,24 +169,10 @@ class MyAI( AI ):
 		#							YOUR CODE ENDS							   #
 		########################################################################
 
-	def markAll(self, frontier):
-		for x, y in frontier:
-			covered_neighbor = self.board.getCoveredNeighbors(x, y)
-			if self.board.getEffectiveLabel(x, y) == len(covered_neighbor):
-				for x1, y1 in covered_neighbor:
-					self.board.mark(x1, y1)
-
 	def ruleOfThumb(self, frontier):
-		# E.g. if EffectiveLabel(x) = NumUnMarkedNeighbors(x), then; all; UnMarkedNeighbors(x); must; be; mines(mark; them as such
-		# on; the; board;this is likely; to; reduce; effective; labels; of; other; nearby; uncovered; tiles, so; that; the
-		# rules; of; thumb; can; be; fired; again)
-		for x, y in frontier:
-			covered_neighbor = self.board.getCoveredNeighbors(x, y)
-			marked_neighbor = self.board.getMarkedNeighbors(x, y)
-			if covered_neighbor and (
-					self.board.getLabel(x, y) == len(marked_neighbor) or self.board.getEffectiveLabel(x, y) == 0):
-				# all mines neighboring this tile is marked, all neighbors are safe
-				# or
-				# E.g. if EffectiveLabel(x) = 0, then; all; UnMarkedNeighbors(x); must; be; safe(you; can; UNCOVER; them)
-				next_x, next_y = covered_neighbor.pop()
-				return Action(AI.Action.UNCOVER, next_x, next_y)
+		# TODO: if EffectiveLabel(x) = NumCoveredNeighbors(x), then all UnMarkedNeighbors(x) must be mines(mark them as such
+		# on the board. This is likely to reduce effective labels of other nearby uncovered tiles, so that the
+		# rules of thumb can be fired again)
+
+		# TODO: if EffectiveLabel(x) = 0, then all UnMarkedNeighbors(x) must be safe(you can UNCOVER them)
+		return Action(AI.Action.LEAVE)
