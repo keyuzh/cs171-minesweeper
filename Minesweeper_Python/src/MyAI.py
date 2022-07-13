@@ -112,7 +112,7 @@ class MyAI( AI ):
 			frontier = set()
 			for x in range(self.colDimension):
 				for y in range(self.rowDimension):
-					if self.getNumLabeledNeighbors(x, y) > 0:
+					if self.isCovered(x, y) and self.getNumLabeledNeighbors(x, y) > 0:
 						frontier.add((x, y))
 			return frontier
 
@@ -127,6 +127,8 @@ class MyAI( AI ):
 		self.totalMines = totalMines
 		# need a variable to store the position of the last uncovered tile
 		self.lastActionPosition = (startX, startY)
+
+		self.safe_tiles = set()
 		########################################################################
 		#							YOUR CODE ENDS							   #
 		########################################################################
@@ -144,6 +146,9 @@ class MyAI( AI ):
 		# debug
 		self.board.printBoard()
 
+		if self.safe_tiles:
+			return self.return_action()
+
 		# basic outline of getAction()
 		# TODO: are we done? Num of covered tiles == num of mines -> LEAVE
 		# otherwise need to figure out UNCOVER X, Y
@@ -160,6 +165,11 @@ class MyAI( AI ):
 			return action
 
 		# TODO: if this did not give tile to uncover, use better logic -> UNCOVER X, Y
+		action = self.model_checking()
+		if action is not None:
+			# rule of thumb returned an action, save the position of that action, then return
+			self.lastActionPosition = (action.getX(), action.getY())
+			return action
 		# TODO: if this did not give tile to uncover, go to even more sophisticated logic -> UNCOVER X, Y
 		# TODO: finally, if still no tile (this will happen since some partial boards are undecidable), need to
 		# guess - exact probability computation may be intractable, use approximation -> UNCOVER X, Y
@@ -173,6 +183,52 @@ class MyAI( AI ):
 		# TODO: if EffectiveLabel(x) = NumCoveredNeighbors(x), then all UnMarkedNeighbors(x) must be mines(mark them as such
 		# on the board. This is likely to reduce effective labels of other nearby uncovered tiles, so that the
 		# rules of thumb can be fired again)
+		for x in range(self.board.colDimension):
+			for y in range(self.board.rowDimension):
+				if self.board.getEffectiveLabel(x, y) == self.board.getNumCoveredNeighbors(x, y):
+					neighbors = self.board.getCoveredNeighbors(x, y)
+					for (x1, y1) in neighbors:
+						self.board.mark(x1, y1)
 
 		# TODO: if EffectiveLabel(x) = 0, then all UnMarkedNeighbors(x) must be safe(you can UNCOVER them)
-		return Action(AI.Action.LEAVE)
+		for x in range(self.board.colDimension):
+			for y in range(self.board.rowDimension):
+				if self.board.getEffectiveLabel(x, y) == 0:
+					neighbors = self.board.getCoveredNeighbors(x, y)
+					if not neighbors:
+						continue
+					self.safe_tiles = self.safe_tiles.union(neighbors)
+					return self.return_action()
+
+		# return Action(AI.Action.LEAVE)
+
+	def model_checking(self):
+		covered_frontier = list(self.board.getCoveredFrontier())
+		# [(x, y), (x, y), (x, y)]
+		combinations = 2 ** len(covered_frontier)
+		binary_length = len(covered_frontier)
+		for i in range(combinations):
+			binary_i = bin(i)[2:]
+			while len(binary_i) < binary_length:
+				binary_i = '0' + binary_i
+			for j in range(len(covered_frontier)):
+				covered_frontier[j] = (covered_frontier[j], binary_i[j])
+				# [ ((x,y), 0), ((x1,y1), 1)  ]
+			print(covered_frontier)
+			if self.check_constraints(covered_frontier) is True:
+				# TODO: add it to set of possible assignments
+				pass
+
+		# TODO: loop through all possible assignments and
+		#  for each tile in C, count in how many models
+		#  it is 0 or 1
+
+	def check_constraints(self, covered: list) -> bool:
+		pass
+
+	def return_action(self):
+		x, y = self.safe_tiles.pop()
+		action = Action(AI.Action.UNCOVER, x, y)
+		self.lastActionPosition = (action.getX(), action.getY())
+		print(x, y)
+		return action
