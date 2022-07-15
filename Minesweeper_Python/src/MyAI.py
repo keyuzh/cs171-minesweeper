@@ -15,7 +15,7 @@ from collections import namedtuple
 
 from AI import AI
 from Action import Action
-
+from collections import defaultdict
 
 class MyAI( AI ):
 
@@ -151,6 +151,8 @@ class MyAI( AI ):
 
 		# basic outline of getAction()
 		# TODO: are we done? Num of covered tiles == num of mines -> LEAVE
+		if self.board.getCoveredCount() == 0:
+			return Action(AI.Action.LEAVE)
 		# otherwise need to figure out UNCOVER X, Y
 
 		# first get the frontier tiles
@@ -200,31 +202,51 @@ class MyAI( AI ):
 					self.safe_tiles = self.safe_tiles.union(neighbors)
 					return self.return_action()
 
-		# return Action(AI.Action.LEAVE)
-
 	def model_checking(self):
 		covered_frontier = list(self.board.getCoveredFrontier())
 		# [(x, y), (x, y), (x, y)]
 		combinations = 2 ** len(covered_frontier)
 		binary_length = len(covered_frontier)
+		possible_assignments = list()
 		for i in range(combinations):
+			covered_frontier_dict = dict()
 			binary_i = bin(i)[2:]
 			while len(binary_i) < binary_length:
 				binary_i = '0' + binary_i
 			for j in range(len(covered_frontier)):
-				covered_frontier[j] = (covered_frontier[j], binary_i[j])
-				# [ ((x,y), 0), ((x1,y1), 1)  ]
-			print(covered_frontier)
-			if self.check_constraints(covered_frontier) is True:
-				# TODO: add it to set of possible assignments
-				pass
+				covered_frontier_dict[covered_frontier[j]] =  binary_i[j]
+			if self.check_constraints(covered_frontier_dict) is True:
+				possible_assignments.append(covered_frontier_dict)
 
-		# TODO: loop through all possible assignments and
-		#  for each tile in C, count in how many models
-		#  it is 0 or 1
+		tile_count = defaultdict(int)
+		for dictionary in possible_assignments:
+			for k,v in dictionary.items():
+				tile_count[k] += int(v)
 
-	def check_constraints(self, covered: list) -> bool:
-		pass
+		min_tile = min(tile_count.items(), key=lambda x: x[1])
+		self.safe_tiles.add(min_tile[0])
+		return self.return_action()
+
+
+
+
+
+
+	def check_constraints(self, covered: dict) -> bool:
+		for x,y in self.board.getUncoveredFrontier():
+			effective_label = self.board.getEffectiveLabel(x,y)
+			neighbors = self.board.getCoveredNeighbors(x,y)
+			sum = 0
+			for x1, y1 in neighbors:
+				sum += int(covered[x1,y1])
+			if sum != effective_label:
+				return False
+		return True
+
+
+
+
+
 
 	def return_action(self):
 		x, y = self.safe_tiles.pop()
