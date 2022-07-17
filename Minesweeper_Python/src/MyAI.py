@@ -374,4 +374,4 @@ class MyAI( AI ):
 	def edgeCase(self):
 		if self.totalMines == self.board.getNumMarkedTiles():
 			# Uncover everything
-			self.safe_tiles.union(self.board.getAllCoveredTile())
+			self.safe_tiles = self.safe_tiles.union(self.board.getAllCoveredTile())
