@@ -47,6 +47,22 @@ class MyAI( AI ):
 		def isLabeled(self, x, y):
 			return isinstance(self.getLabel(x, y), int)
 
+		def getNumMarkedTiles(self):
+			cnt = 0
+			for x in range(self.colDimension):
+				for y in range(self.rowDimension):
+					if self.isMarked(x, y):
+						cnt += 1
+			return cnt
+
+		def getAllCoveredTile(self):
+			covered = set()
+			for x in range(self.colDimension):
+				for y in range(self.rowDimension):
+					if self.isCovered(x, y):
+						covered.add((x,y))
+			return covered
+
 		def getNeighbors(self, x, y):
 			neighbor = set()
 			for col in range(x-1, x+2):
@@ -60,7 +76,8 @@ class MyAI( AI ):
 			cnt = 0
 			for x in range(self.colDimension):
 				for y in range(self.rowDimension):
-					if self.isCovered(x, y):
+					# if self.isCovered(x, y):
+					if not self.isLabeled(x, y):
 						cnt += 1
 			return cnt
 
@@ -146,18 +163,22 @@ class MyAI( AI ):
 		# debug
 		self.board.printBoard()
 
+		# TODO: edge case
+		self.edgeCase()
+
 		if self.safe_tiles:
 			return self.return_action()
 
 		# basic outline of getAction()
 		# TODO: are we done? Num of covered tiles == num of mines -> LEAVE
-		if self.board.getCoveredCount() == 0:
+		if self.board.getCoveredCount() == self.totalMines:
 			return Action(AI.Action.LEAVE)
 		# otherwise need to figure out UNCOVER X, Y
 
 		# first get the frontier tiles
 		covered_frontier = self.board.getCoveredFrontier()
 		uncovered_frontier = self.board.getUncoveredFrontier()
+
 
 		# TODO: use simple rule of thumb logic -> UNCOVER X, Y
 		action = self.ruleOfThumb(uncovered_frontier)
@@ -203,11 +224,13 @@ class MyAI( AI ):
 					return self.return_action()
 
 	def model_checking(self):
+		self.board.printBoard()
 		covered_frontier = list(self.board.getCoveredFrontier())
 		# [(x, y), (x, y), (x, y)]
 		combinations = 2 ** len(covered_frontier)
 		binary_length = len(covered_frontier)
 		possible_assignments = list()
+		print("N = ", binary_length)
 		for i in range(combinations):
 			covered_frontier_dict = dict()
 			binary_i = bin(i)[2:]
@@ -254,3 +277,8 @@ class MyAI( AI ):
 		self.lastActionPosition = (action.getX(), action.getY())
 		print(x, y)
 		return action
+
+	def edgeCase(self):
+		if self.totalMines == self.board.getNumMarkedTiles():
+			# Uncover everything
+			self.safe_tiles.union(self.board.getAllCoveredTile())
