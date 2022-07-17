@@ -259,7 +259,9 @@ class MyAI( AI ):
 
 		result = []
 		for i in frontiers:
-			result.append(self.divide_conquer(i))
+			res = self.divide_conquer(i)
+			if res is not None:
+				result.append(res)
 		# conquer step
 		# find the tile in "result" with smallest probability and assume it it safe
 		smallest = min(result, key=(lambda x: x[1]))
@@ -329,7 +331,7 @@ class MyAI( AI ):
 			return min_tile
 		except ValueError as e:
 			print(e)
-			raise
+			return None
 
 
 
