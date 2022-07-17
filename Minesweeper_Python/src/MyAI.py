@@ -250,18 +250,22 @@ class MyAI( AI ):
 		# first we divide frontier into groups of connected frontier
 		# if there is a disconnection in the middle, hopefully it will divide the frontier into groups smaller than 15,
 		# otherwise divide manually
-		frontiers = self.divide_step()
-		i = 0
-		while i < len(frontiers):
-			if len(frontiers[i]) > 11:
-				self.broke = True
-				# if it is still too long after dividing, do it again
-				half = len(frontiers[i]) // 2
-				temp = frontiers[i]
-				frontiers[i] = temp[:half]  # current index = first half
-				frontiers.insert(i+1, temp[half:])  # insert second half after current index
+		_divide = False
+		if _divide:
+			frontiers = self.divide_step()
+			i = 0
+			while i < len(frontiers):
+				if len(frontiers[i]) > 11:
+					self.broke = True
+					# if it is still too long after dividing, do it again
+					half = len(frontiers[i]) // 2
+					temp = frontiers[i]
+					frontiers[i] = temp[:half]  # current index = first half
+					frontiers.insert(i+1, temp[half:])  # insert second half after current index
+					i += 1
 				i += 1
-			i += 1
+		else:
+			frontiers = [list(self.board.getCoveredFrontier())]
 
 		result = []
 		for i in frontiers:
