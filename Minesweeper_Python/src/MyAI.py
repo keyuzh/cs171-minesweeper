@@ -341,8 +341,10 @@ class MyAI( AI ):
 		for x,y in self.board.getUncoveredFrontier():
 			effective_label = self.board.getEffectiveLabel(x,y)
 			neighbors = self.board.getCoveredNeighbors(x,y).intersection(covered.keys())
-			if (not neighbors) or (len(neighbors) < effective_label):
+			if (not neighbors):
 				continue
+			if len(neighbors) < effective_label:
+				effective_label = len(neighbors)
 			sum = 0
 			for x1, y1 in neighbors:
 				sum += int(covered[x1,y1])
