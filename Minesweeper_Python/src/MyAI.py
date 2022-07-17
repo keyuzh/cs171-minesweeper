@@ -146,6 +146,12 @@ class MyAI( AI ):
 						frontier.add((x, y))
 			return frontier
 
+		def getNeighborUncovered(self, covered):
+			uncovered = set()
+			for x, y in covered:
+				uncovered.union(self.getLabeledNeighbors(x, y))
+			return uncovered
+
 	def __init__(self, rowDimension, colDimension, totalMines, startX, startY):
 		########################################################################
 		#							YOUR CODE BEGINS						   #
@@ -338,7 +344,7 @@ class MyAI( AI ):
 
 
 	def check_constraints(self, covered: dict) -> bool:
-		for x,y in self.board.getUncoveredFrontier():
+		for x,y in self.board.getNeighborUncovered(covered):
 			effective_label = self.board.getEffectiveLabel(x,y)
 			neighbors = self.board.getCoveredNeighbors(x,y).intersection(covered.keys())
 			if (not neighbors):
