@@ -247,7 +247,7 @@ class MyAI( AI ):
 		frontiers = self.divide_step()
 		i = 0
 		while i < len(frontiers):
-			if len(frontiers[i]) > 12:
+			if len(frontiers[i]) > 11:
 				self.broke = True
 				# if it is still too long after dividing, do it again
 				half = len(frontiers[i]) // 2
@@ -272,9 +272,9 @@ class MyAI( AI ):
 		# list of list, inner list is sorted (x,y) tuples
 		sorted_frontier_collection = list()
 		covered_frontier = self.board.getCoveredFrontier()
-		if len(covered_frontier) < 13:
-			# if it is short dont divide
-			return [list(covered_frontier)]
+		# if len(covered_frontier) < 13:
+		# 	# if it is short dont divide
+		# 	return [list(covered_frontier)]
 		# while covered_frontier is not empty
 		while covered_frontier:
 			sorted_frontier = list()
