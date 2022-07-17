@@ -11,6 +11,7 @@
 #
 #				- DO NOT MAKE CHANGES TO THIS FILE.
 # ==============================CS-199==================================
+import math
 from collections import namedtuple
 
 from AI import AI
@@ -46,6 +47,18 @@ class MyAI( AI ):
 
 		def isLabeled(self, x, y):
 			return isinstance(self.getLabel(x, y), int)
+
+		def distanceToEdge(self, x, y):
+			max_x = self.colDimension - 1
+			max_y = self.rowDimension - 1
+			x_distance = min(x, max_x - x)
+			y_distance = min(y, max_y - y)
+			return x_distance + y_distance
+
+		def distanceToPoint(self, p1: (int, int), p2: (int, int)):
+			p1_x, p1_y = p1
+			p2_x, p2_y = p2
+			return math.sqrt((p1_x - p2_x)**2 + (p1_y - p2_y)**2)
 
 		def getNumMarkedTiles(self):
 			cnt = 0
@@ -146,6 +159,8 @@ class MyAI( AI ):
 		self.lastActionPosition = (startX, startY)
 
 		self.safe_tiles = set()
+
+		self.broke = False
 		########################################################################
 		#							YOUR CODE ENDS							   #
 		########################################################################
@@ -225,8 +240,69 @@ class MyAI( AI ):
 
 	def model_checking(self):
 		self.board.printBoard()
-		covered_frontier = list(self.board.getCoveredFrontier())
-		# [(x, y), (x, y), (x, y)]
+		# divide and conquer
+		# first we divide frontier into groups of connected frontier
+		# if there is a disconnection in the middle, hopefully it will divide the frontier into groups smaller than 15,
+		# otherwise divide manually
+		frontiers = self.divide_step()
+		i = 0
+		while i < len(frontiers):
+			if len(frontiers[i]) > 12:
+				self.broke = True
+				# if it is still too long after dividing, do it again
+				half = len(frontiers[i]) // 2
+				temp = frontiers[i]
+				frontiers[i] = temp[:half]  # current index = first half
+				frontiers.insert(i+1, temp[half:])  # insert second half after current index
+				i += 1
+			i += 1
+
+		result = []
+		for i in frontiers:
+			result.append(self.divide_conquer(i))
+		# conquer step
+		# find the tile in "result" with smallest probability and assume it it safe
+		smallest = min(result, key=(lambda x: x[1]))
+		self.safe_tiles.add(smallest[0])
+		return self.return_action()
+
+	def divide_step(self):
+		# list of list, inner list is sorted (x,y) tuples
+		sorted_frontier_collection = list()
+		covered_frontier = self.board.getCoveredFrontier()
+		if len(covered_frontier) < 13:
+			# if it is short dont divide
+			return [list(covered_frontier)]
+		# while covered_frontier is not empty
+		while covered_frontier:
+			sorted_frontier = list()
+			# find the tile that is closest to the edge of board
+			closest = min(
+				[(x, y, self.board.distanceToEdge(x, y)) for x, y in covered_frontier],
+				# (x, y, distance)
+				key=(lambda x: x[2]))
+			closest_x_y = (closest[0], closest[1])
+			# a queue of (x, y) to be added to sorted_frontier
+			queue = [closest_x_y]
+			while queue:
+				first = queue.pop(0)
+				# remove it from covered_frontier and add to sorted_frontier
+				covered_frontier.remove(first)
+				sorted_frontier.append(first)
+				# add its neighbors and repeat
+				neighbors = list(self.board.getCoveredNeighbors(first[0], first[1]).intersection(covered_frontier))
+				if not neighbors:
+					# if there is no neighbors do nothing
+					continue
+				# sort by distance and add the closest neighbor back to queue
+				neighbors.sort(key=(lambda x: self.board.distanceToPoint(first, (x[0], x[1]))))
+				queue.append(neighbors[0])
+			sorted_frontier_collection.append(sorted_frontier)
+		return sorted_frontier_collection
+
+
+
+	def divide_conquer(self, covered_frontier):
 		combinations = 2 ** len(covered_frontier)
 		binary_length = len(covered_frontier)
 		possible_assignments = list()
@@ -246,10 +322,14 @@ class MyAI( AI ):
 			for k,v in dictionary.items():
 				tile_count[k] += int(v)
 
-		min_tile = min(tile_count.items(), key=lambda x: x[1])
-		self.safe_tiles.add(min_tile[0])
-		return self.return_action()
-
+		try:
+			min_tile = min(tile_count.items(), key=lambda x: x[1])
+			# change the value from raw count to probability
+			min_tile = (min_tile[0], min_tile[1] / len(possible_assignments))
+			return min_tile
+		except ValueError as e:
+			print(e)
+			raise
 
 
 
@@ -258,7 +338,9 @@ class MyAI( AI ):
 	def check_constraints(self, covered: dict) -> bool:
 		for x,y in self.board.getUncoveredFrontier():
 			effective_label = self.board.getEffectiveLabel(x,y)
-			neighbors = self.board.getCoveredNeighbors(x,y)
+			neighbors = self.board.getCoveredNeighbors(x,y).intersection(covered.keys())
+			if (not neighbors) or (len(neighbors) < effective_label):
+				continue
 			sum = 0
 			for x1, y1 in neighbors:
 				sum += int(covered[x1,y1])
@@ -276,6 +358,7 @@ class MyAI( AI ):
 		action = Action(AI.Action.UNCOVER, x, y)
 		self.lastActionPosition = (action.getX(), action.getY())
 		print(x, y)
+		assert self.board.isCovered(x, y)
 		return action
 
 	def edgeCase(self):
