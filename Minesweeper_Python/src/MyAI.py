@@ -379,3 +379,4 @@ class MyAI( AI ):
 		if self.totalMines == self.board.getNumMarkedTiles():
 			# Uncover everything
 			self.safe_tiles = self.safe_tiles.union(self.board.getAllCoveredTile())
+		# TODO: if uncovered frontier is empty, need to guess
