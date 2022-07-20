@@ -12,16 +12,18 @@
 #				- DO NOT MAKE CHANGES TO THIS FILE.
 # ==============================CS-199==================================
 import math
-from collections import namedtuple
+import random
 
 from AI import AI
 from Action import Action
 from collections import defaultdict
 
-class MyAI( AI ):
+_DEBUG = False
 
+
+class MyAI(AI):
 	class Board:
-		def __init__(self, rowDimension, colDimension, totalMines, startX, startY):
+		def __init__(self, rowDimension, colDimension, totalMines):
 			self.remaining = totalMines
 			self.rowDimension = rowDimension
 			self.colDimension = colDimension
@@ -58,7 +60,7 @@ class MyAI( AI ):
 		def distanceToPoint(self, p1: (int, int), p2: (int, int)):
 			p1_x, p1_y = p1
 			p2_x, p2_y = p2
-			return math.sqrt((p1_x - p2_x)**2 + (p1_y - p2_y)**2)
+			return math.sqrt((p1_x - p2_x) ** 2 + (p1_y - p2_y) ** 2)
 
 		def getNumMarkedTiles(self):
 			cnt = 0
@@ -73,14 +75,14 @@ class MyAI( AI ):
 			for x in range(self.colDimension):
 				for y in range(self.rowDimension):
 					if self.isCovered(x, y):
-						covered.add((x,y))
+						covered.add((x, y))
 			return covered
 
 		def getNeighbors(self, x, y):
 			neighbor = set()
-			for col in range(x-1, x+2):
-				for row in range(y-1, y+2):
-					if not(col == x and row == y) and self.isvalid(col, row):
+			for col in range(x - 1, x + 2):
+				for row in range(y - 1, y + 2):
+					if not (col == x and row == y) and self.isvalid(col, row):
 						neighbor.add((col, row))
 			return neighbor
 
@@ -118,7 +120,7 @@ class MyAI( AI ):
 				return self.getLabel(x, y) - self.getNumMarkedNeighbors(x, y)
 
 		def printBoard(self):
-			print("  " + ''.join([6*" " + str(i) for i in range(self.rowDimension)]))
+			print("  " + ''.join([6 * " " + str(i) for i in range(self.rowDimension)]))
 			for y in range(self.rowDimension):
 				print(str(y) + " | ", end='')
 				for x in range(self.colDimension):
@@ -149,7 +151,7 @@ class MyAI( AI ):
 		def getNeighborUncovered(self, covered):
 			uncovered = set()
 			for x, y in covered:
-				uncovered.union(self.getLabeledNeighbors(x, y))
+				uncovered = uncovered.union(self.getLabeledNeighbors(x, y))
 			return uncovered
 
 	def __init__(self, rowDimension, colDimension, totalMines, startX, startY):
@@ -158,18 +160,17 @@ class MyAI( AI ):
 		########################################################################
 
 		# initialize board
-		self.board = MyAI.Board(rowDimension, colDimension, totalMines, startX, startY)
+		self.board = MyAI.Board(rowDimension, colDimension, totalMines)
 		# store total number of mines
 		self.totalMines = totalMines
 		# need a variable to store the position of the last uncovered tile
 		self.lastActionPosition = (startX, startY)
-
+		# set of safe tiles that we need to uncover
 		self.safe_tiles = set()
 
-		self.broke = False
-		########################################################################
-		#							YOUR CODE ENDS							   #
-		########################################################################
+	########################################################################
+	#							YOUR CODE ENDS							   #
+	########################################################################
 
 	def getAction(self, number: int) -> "Action Object":
 		"""As you UNCOVER, FLAG, UNFLAG, update the board
@@ -181,50 +182,43 @@ class MyAI( AI ):
 		# update the label of last uncovered tile
 		self.board.uncover(self.lastActionPosition[0], self.lastActionPosition[1], number)
 
-		# debug
-		self.board.printBoard()
+		if _DEBUG:
+			self.board.printBoard()
 
-		# TODO: edge case
-		self.edgeCase()
-
-		if self.safe_tiles:
-			return self.return_action()
-
-		# basic outline of getAction()
-		# TODO: are we done? Num of covered tiles == num of mines -> LEAVE
+		# are we done? Num of covered tiles == num of mines -> LEAVE
 		if self.board.getCoveredCount() == self.totalMines:
 			return Action(AI.Action.LEAVE)
-		# otherwise need to figure out UNCOVER X, Y
 
-		# first get the frontier tiles
-		covered_frontier = self.board.getCoveredFrontier()
-		uncovered_frontier = self.board.getUncoveredFrontier()
-
-
-		# TODO: use simple rule of thumb logic -> UNCOVER X, Y
-		action = self.ruleOfThumb(uncovered_frontier)
+		# use simple rule of thumb logic -> UNCOVER X, Y
+		action = self.ruleOfThumb()
 		if action is not None:
 			# rule of thumb returned an action, save the position of that action, then return
 			self.lastActionPosition = (action.getX(), action.getY())
 			return action
 
-		# TODO: if this did not give tile to uncover, use better logic -> UNCOVER X, Y
+		# check edge cases
+		self.edgeCase()
+		if self.safe_tiles:
+			# edge cases found and new safe tiles added to set
+			return self.return_action()
+
+		# if this did not give tile to uncover, use better logic -> UNCOVER X, Y
 		action = self.model_checking()
 		if action is not None:
-			# rule of thumb returned an action, save the position of that action, then return
+			# returned an action, save the position of that action, then return
 			self.lastActionPosition = (action.getX(), action.getY())
 			return action
-		# TODO: if this did not give tile to uncover, go to even more sophisticated logic -> UNCOVER X, Y
-		# TODO: finally, if still no tile (this will happen since some partial boards are undecidable), need to
-		# guess - exact probability computation may be intractable, use approximation -> UNCOVER X, Y
-		self.board.printBoard()
-		return Action(AI.Action.LEAVE)
-		########################################################################
-		#							YOUR CODE ENDS							   #
-		########################################################################
 
-	def ruleOfThumb(self, frontier):
-		# TODO: if EffectiveLabel(x) = NumCoveredNeighbors(x), then all UnMarkedNeighbors(x) must be mines(mark them as such
+		# should not come to this point, but if so, we have to guess
+		self.guess()
+		return self.return_action()
+
+	########################################################################
+	#							YOUR CODE ENDS							   #
+	########################################################################
+
+	def ruleOfThumb(self):
+		# if EffectiveLabel(x) = NumCoveredNeighbors(x), then all UnMarkedNeighbors(x) must be mines(mark them as such
 		# on the board. This is likely to reduce effective labels of other nearby uncovered tiles, so that the
 		# rules of thumb can be fired again)
 		for x in range(self.board.colDimension):
@@ -234,7 +228,7 @@ class MyAI( AI ):
 					for (x1, y1) in neighbors:
 						self.board.mark(x1, y1)
 
-		# TODO: if EffectiveLabel(x) = 0, then all UnMarkedNeighbors(x) must be safe(you can UNCOVER them)
+		# if EffectiveLabel(x) = 0, then all UnMarkedNeighbors(x) must be safe(you can UNCOVER them)
 		for x in range(self.board.colDimension):
 			for y in range(self.board.rowDimension):
 				if self.board.getEffectiveLabel(x, y) == 0:
@@ -245,28 +239,22 @@ class MyAI( AI ):
 					return self.return_action()
 
 	def model_checking(self):
-		self.board.printBoard()
+		if _DEBUG:
+			self.board.printBoard()
 		# divide and conquer
-		# first we divide frontier into groups of connected frontier
-		# if there is a disconnection in the middle, hopefully it will divide the frontier into groups smaller than 15,
-		# otherwise divide manually
-		_divide = False
-		if _divide:
-			frontiers = self.divide_step()
-			i = 0
-			while i < len(frontiers):
-				if len(frontiers[i]) > 11:
-					self.broke = True
-					# if it is still too long after dividing, do it again
-					half = len(frontiers[i]) // 2
-					temp = frontiers[i]
-					frontiers[i] = temp[:half]  # current index = first half
-					frontiers.insert(i+1, temp[half:])  # insert second half after current index
-					i += 1
+		frontiers = [self.divide_step()]
+		i = 0
+		while i < len(frontiers):
+			# we divide the frontier if length >= 20
+			if len(frontiers[i]) >= 20:
+				half = len(frontiers[i]) // 2
+				temp = frontiers[i]
+				frontiers[i] = temp[:half]  # current index = first half
+				frontiers.insert(i + 1, temp[half:])  # insert second half after current index
 				i += 1
-		else:
-			frontiers = [list(self.board.getCoveredFrontier())]
+			i += 1
 
+		# for each of the divided part, find the tile that is least possible to be a mine
 		result = []
 		for i in frontiers:
 			res = self.divide_conquer(i)
@@ -274,20 +262,16 @@ class MyAI( AI ):
 				result.append(res)
 		# conquer step
 		# find the tile in "result" with smallest probability and assume it it safe
-		smallest = min(result, key=(lambda x: x[1]))
-		self.safe_tiles.add(smallest[0])
-		return self.return_action()
+		if result:
+			smallest = min(result, key=(lambda x: x[1]))
+			self.safe_tiles.add(smallest[0])
+			return self.return_action()
 
 	def divide_step(self):
-		# list of list, inner list is sorted (x,y) tuples
-		sorted_frontier_collection = list()
+		sorted_frontier = list()
 		covered_frontier = self.board.getCoveredFrontier()
-		# if len(covered_frontier) < 13:
-		# 	# if it is short dont divide
-		# 	return [list(covered_frontier)]
 		# while covered_frontier is not empty
 		while covered_frontier:
-			sorted_frontier = list()
 			# find the tile that is closest to the edge of board
 			closest = min(
 				[(x, y, self.board.distanceToEdge(x, y)) for x, y in covered_frontier],
@@ -309,74 +293,66 @@ class MyAI( AI ):
 				# sort by distance and add the closest neighbor back to queue
 				neighbors.sort(key=(lambda x: self.board.distanceToPoint(first, (x[0], x[1]))))
 				queue.append(neighbors[0])
-			sorted_frontier_collection.append(sorted_frontier)
-		return sorted_frontier_collection
-
-
+		return sorted_frontier
 
 	def divide_conquer(self, covered_frontier):
 		combinations = 2 ** len(covered_frontier)
 		binary_length = len(covered_frontier)
 		possible_assignments = list()
-		print("N = ", binary_length)
+		if _DEBUG:
+			print("N = ", binary_length)
 		for i in range(combinations):
 			covered_frontier_dict = dict()
 			binary_i = bin(i)[2:]
 			while len(binary_i) < binary_length:
 				binary_i = '0' + binary_i
 			for j in range(len(covered_frontier)):
-				covered_frontier_dict[covered_frontier[j]] =  binary_i[j]
+				covered_frontier_dict[covered_frontier[j]] = binary_i[j]
 			if self.check_constraints(covered_frontier_dict) is True:
 				possible_assignments.append(covered_frontier_dict)
 
 		tile_count = defaultdict(int)
 		for dictionary in possible_assignments:
-			for k,v in dictionary.items():
+			for k, v in dictionary.items():
 				tile_count[k] += int(v)
-
-		try:
+		if tile_count:
 			min_tile = min(tile_count.items(), key=lambda x: x[1])
 			# change the value from raw count to probability
 			min_tile = (min_tile[0], min_tile[1] / len(possible_assignments))
 			return min_tile
-		except ValueError as e:
-			print(e)
-			return None
-
-
-
-
 
 	def check_constraints(self, covered: dict) -> bool:
-		for x,y in self.board.getNeighborUncovered(covered):
-			effective_label = self.board.getEffectiveLabel(x,y)
-			neighbors = self.board.getCoveredNeighbors(x,y).intersection(covered.keys())
-			if (not neighbors):
+		for x, y in self.board.getNeighborUncovered(covered):
+			effective_label = self.board.getEffectiveLabel(x, y)
+			neighbors = self.board.getCoveredNeighbors(x, y).intersection(covered.keys())
+			if not neighbors:
 				continue
 			if len(neighbors) < effective_label:
 				effective_label = len(neighbors)
 			sum = 0
 			for x1, y1 in neighbors:
-				sum += int(covered[x1,y1])
+				sum += int(covered[x1, y1])
 			if sum != effective_label:
 				return False
 		return True
-
-
-
-
-
 
 	def return_action(self):
 		x, y = self.safe_tiles.pop()
 		action = Action(AI.Action.UNCOVER, x, y)
 		self.lastActionPosition = (action.getX(), action.getY())
-		print(x, y)
-		assert self.board.isCovered(x, y)
+		if _DEBUG:
+			print(x, y)
+			assert self.board.isCovered(x, y)
 		return action
 
 	def edgeCase(self):
 		if self.totalMines == self.board.getNumMarkedTiles():
 			# Uncover everything
 			self.safe_tiles = self.safe_tiles.union(self.board.getAllCoveredTile())
-		# TODO: if uncovered frontier is empty, need to guess
+		# if uncovered frontier is empty, need to guess
+		if not self.board.getCoveredFrontier():
+			self.guess()
+
+	def guess(self):
+		guess = random.choice(list(self.board.getAllCoveredTile()))
+		self.safe_tiles.add(guess)
